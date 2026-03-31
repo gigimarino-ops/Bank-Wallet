@@ -3,90 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wallet Ciclo 23</title>
+    <title>Wallet Auto-Fisse</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
         :root { --bg: #f2f2f7; --card: #ffffff; --blue: #007aff; --red: #ff3b30; --green: #34c759; --orange: #ff9500; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; font-size: 15px; }
         .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 10px; }
-        .nav-mese { text-align: center; font-weight: bold; padding: 5px; color: var(--blue); text-transform: uppercase; font-size: 0.9em; }
+        .nav-mese { text-align: center; font-weight: bold; color: var(--blue); font-size: 0.9em; }
         #saldo { font-size: 2.3em; font-weight: bold; text-align: center; margin: 10px 0; }
         .daily-advice { text-align: center; padding: 10px; border-radius: 10px; background: #fff9e6; border: 1px solid var(--orange); margin-bottom: 10px; }
         .input-row { display: flex; gap: 5px; margin-bottom: 8px; }
         input { border: 1px solid #d1d1d6; padding: 12px; border-radius: 8px; font-size: 16px; width: 100%; -webkit-appearance: none; }
         .btn { border: none; padding: 12px; border-radius: 8px; color: white; font-weight: bold; flex: 1; }
         .item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f2f2f7; align-items: center; }
-        .backup-btn { font-size: 0.7em; color: gray; margin-top: 20px; text-align: center; text-decoration: underline; }
+        .badge-fissa { font-size: 0.7em; background: #eee; padding: 2px 5px; border-radius: 4px; color: #666; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <div class="nav-mese" id="ciclo-testo">CICLO ATTUALE</div>
+        <div class="nav-mese" id="ciclo-testo">CARICAMENTO...</div>
         <div id="saldo">€ 0.00</div>
     </div>
 
     <div class="daily-advice">
-        <div style="font-size: 0.8em; color: var(--orange); font-weight: bold;">BUDGET GIORNALIERO (FINO AL 22)</div>
+        <div style="font-size: 0.8em; color: var(--orange); font-weight: bold;">BUDGET GIORNALIERO</div>
         <div id="daily-limit" style="font-size: 1.6em; font-weight: bold;">€ 0.00</div>
-        <div id="days-left" style="font-size: 0.7em; color: gray; margin-top: 3px;"></div>
+        <div id="days-left" style="font-size: 0.7em; color: gray;"></div>
     </div>
 
     <div class="card">
         <div class="input-row">
-            <input type="text" id="desc" placeholder="Cosa?">
+            <input type="text" id="desc" placeholder="Descrizione">
             <input type="number" id="euro" placeholder="€" style="width: 90px;">
         </div>
         <div class="input-row">
             <button class="btn" style="background:var(--green)" onclick="aggiungi('IN')">ENTRATA</button>
             <button class="btn" style="background:var(--red)" onclick="aggiungi('OUT')">SPESA</button>
         </div>
+        <button class="btn" style="background:#8e8e93; width:100%; margin-top:5px;" onclick="aggiungi('FIX')">+ SALVA COME RICORRENTE (Ogni mese)</button>
     </div>
 
     <div class="card">
-        <div style="font-weight: bold; margin-bottom: 10px;">Movimenti Ciclo Corrente</div>
+        <div style="font-weight: bold; margin-bottom: 10px;">Movimenti Ciclo</div>
         <div id="lista"></div>
     </div>
 
-    <div class="backup-btn" onclick="toggleSettings()">⚙️ Giorno Stipendio & Backup</div>
-    <div id="settings" style="display:none; padding: 20px; font-size: 0.8em; color: #666;">
-        Giorno Stipendio: <input type="number" id="payday-input" value="23" style="width:50px; padding:5px;" onchange="salvaGiorno()">
-        <br><br>
-        <button onclick="esporta()">Copia Backup</button>
-        <button onclick="importa()">Incolla Backup</button>
-    </div>
+    <div style="text-align:center; font-size:0.8em; color:gray; padding:20px;" onclick="location.reload()">🔄 Aggiorna / Backup</div>
 
     <script>
-        let movimenti = JSON.parse(localStorage.getItem('wallet_v6')) || [];
-        let giornoStipendio = parseInt(localStorage.getItem('payday')) || 23;
+        let movimenti = JSON.parse(localStorage.getItem('wallet_v7')) || [];
+        let ricorrenti = JSON.parse(localStorage.getItem('ricorrenti')) || [];
+        let giornoStipendio = 23;
 
         function getLimitiCiclo() {
             const oggi = new Date();
             let inizio = new Date(oggi.getFullYear(), oggi.getMonth(), giornoStipendio);
             if (oggi.getDate() < giornoStipendio) inizio.setMonth(inizio.getMonth() - 1);
-            
             let fine = new Date(inizio.getFullYear(), inizio.getMonth() + 1, giornoStipendio - 1);
             return { inizio, fine };
         }
 
+        // Funzione che inserisce le spese fisse se siamo in un nuovo ciclo
+        function checkRicorrenti() {
+            const { inizio } = getLimitiCiclo();
+            ricorrenti.forEach(r => {
+                // Controlla se questa spesa fissa esiste già in questo ciclo
+                const esiste = movimenti.some(m => m.desc === r.desc && new Date(m.dataISO) >= inizio);
+                if (!esiste) {
+                    movimenti.unshift({ 
+                        desc: r.desc, 
+                        importo: r.importo, 
+                        tipo: 'OUT', 
+                        isFissa: true,
+                        dataISO: inizio.toISOString() // La segna al primo giorno del ciclo
+                    });
+                }
+            });
+        }
+
         function aggiornaUI() {
+            checkRicorrenti();
             const lista = document.getElementById('lista');
             lista.innerHTML = '';
             const { inizio, fine } = getLimitiCiclo();
             const oggi = new Date();
             
-            document.getElementById('ciclo-testo').innerText = `Dal ${inizio.toLocaleDateString()} al ${fine.toLocaleDateString()}`;
+            document.getElementById('ciclo-testo').innerText = `CICLO: ${inizio.toLocaleDateString()} - ${fine.toLocaleDateString()}`;
 
             let entrate = 0, uscite = 0;
-            // Filtriamo solo i movimenti dell'ultimo ciclo (dal 23 ad oggi)
             movimenti.forEach((m, idx) => {
                 const dataM = new Date(m.dataISO);
-                if (dataM >= inizio && dataM <= oggi) {
+                if (dataM >= inizio) {
                     const val = parseFloat(m.importo);
                     if(m.tipo === 'IN') entrate += val; else uscite += val;
                     lista.innerHTML += `
                         <div class="item">
-                            <div><b>${m.desc}</b><div style="font-size:0.7em; color:gray;">${dataM.toLocaleDateString()}</div></div>
+                            <div><b>${m.desc}</b> ${m.isFissa ? '<span class="badge-fissa">FISSA</span>' : ''}</div>
                             <div style="font-weight:bold; color:${m.tipo === 'IN' ? 'var(--green)' : 'var(--red)'}" onclick="elimina('${m.dataISO}')">
                                 ${m.tipo === 'IN' ? '+' : '-'}€${val.toFixed(2)}
                             </div>
@@ -96,23 +109,27 @@
 
             const saldo = entrate - uscite;
             document.getElementById('saldo').innerText = `€ ${saldo.toFixed(2)}`;
-            document.getElementById('saldo').style.color = saldo < 0 ? 'var(--red)' : 'var(--green)';
-
-            // Calcolo Giorni Rimanenti alla fine del ciclo (fino al 22 incluso)
-            const msInGiorno = 24 * 60 * 60 * 1000;
-            const diffGiorni = Math.ceil((fine - oggi + 1000) / msInGiorno);
+            const diffGiorni = Math.ceil((fine - oggi + 1000) / (24*60*60*1000));
             const limite = saldo > 0 ? (saldo / Math.max(diffGiorni, 1)) : 0;
             
             document.getElementById('daily-limit').innerText = `€ ${limite.toFixed(2)}`;
             document.getElementById('days-left').innerText = `Mancano ${diffGiorni} giorni al prossimo stipendio`;
             
-            localStorage.setItem('wallet_v6', JSON.stringify(movimenti));
+            localStorage.setItem('wallet_v7', JSON.stringify(movimenti));
+            localStorage.setItem('ricorrenti', JSON.stringify(ricorrenti));
         }
 
         function aggiungi(tipo) {
             const d = document.getElementById('desc').value, e = document.getElementById('euro').value;
             if(!d || !e) return;
-            movimenti.unshift({ desc: d, importo: e, tipo: tipo, dataISO: new Date().toISOString() });
+
+            if(tipo === 'FIX') {
+                ricorrenti.push({ desc: d, importo: e });
+                alert("Salvata come spesa ricorrente per ogni mese!");
+            } else {
+                movimenti.unshift({ desc: d, importo: e, tipo: tipo, dataISO: new Date().toISOString() });
+            }
+
             document.getElementById('desc').value = ''; document.getElementById('euro').value = '';
             aggiornaUI();
         }
@@ -120,25 +137,13 @@
         function elimina(iso) {
             if(confirm("Eliminare voce?")) {
                 movimenti = movimenti.filter(m => m.dataISO !== iso);
+                // Se elimini una fissa dal ciclo, chiediamo se vuoi rimuoverla anche dalle future
+                if(confirm("Vuoi rimuoverla anche dalle spese fisse automatiche dei prossimi mesi?")) {
+                    const descDaRimuovere = movimenti.find(m => m.dataISO === iso)?.desc;
+                    ricorrenti = ricorrenti.filter(r => r.desc !== descDaRimuovere);
+                }
                 aggiornaUI();
             }
-        }
-
-        function salvaGiorno() {
-            giornoStipendio = document.getElementById('payday-input').value;
-            localStorage.setItem('payday', giornoStipendio);
-            aggiornaUI();
-        }
-
-        function toggleSettings() {
-            const s = document.getElementById('settings');
-            s.style.display = s.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function esporta() { prompt("Copia questo codice:", btoa(JSON.stringify(movimenti))); }
-        function importa() { 
-            const c = prompt("Incolla codice backup:");
-            if(c) { movimenti = JSON.parse(atob(c)); aggiornaUI(); }
         }
 
         aggiornaUI();
