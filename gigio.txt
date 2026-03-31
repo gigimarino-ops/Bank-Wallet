@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wallet Pro 2024</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <style>
+        :root { --bg: #f2f2f7; --card: #ffffff; --blue: #007aff; --red: #ff3b30; --green: #34c759; --orange: #ff9500; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; font-size: 15px; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 10px; }
+        .nav-mese { display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        #saldo { font-size: 2.2em; font-weight: bold; text-align: center; margin: 10px 0; }
+        .daily-advice { text-align: center; padding: 10px; border-radius: 10px; background: #fff9e6; border: 1px solid var(--orange); margin-bottom: 10px; }
+        .input-row { display: flex; gap: 5px; margin-bottom: 8px; }
+        input, textarea { border: 1px solid #d1d1d6; padding: 10px; border-radius: 8px; font-size: 16px; width: 100%; -webkit-appearance: none; }
+        .btn { border: none; padding: 12px; border-radius: 8px; color: white; font-weight: bold; flex: 1; }
+        .item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f2f2f7; }
+        .backup-section { font-size: 0.8em; color: gray; margin-top: 20px; text-align: center; }
+        textarea { font-size: 10px; height: 60px; margin-top: 10px; background: #f9f9f9; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="nav-mese">
+            <button onclick="cambiaMese(-1)" style="background:none; border:none; font-size:1.5em; padding:10px;">‹</button>
+            <span id="mese-titolo">CARICAMENTO...</span>
+            <button onclick="cambiaMese(1)" style="background:none; border:none; font-size:1.5em; padding:10px;">›</button>
+        </div>
+        <div id="saldo">€ 0.00</div>
+    </div>
+
+    <div id="advice-container" class="daily-advice">
+        <div style="font-size: 0.8em; color: var(--orange); font-weight: bold;">BUDGET GIORNALIERO OGGI</div>
+        <div id="daily-limit" style="font-size: 1.6em; font-weight: bold;">€ 0.00</div>
+    </div>
+
+    <div class="card">
+        <div class="input-row">
+            <input type="text" id="desc" placeholder="Descrizione">
+            <input type="number" id="euro" placeholder="€" style="width: 90px;">
+        </div>
+        <div class="input-row">
+            <button class="btn" style="background:var(--green)" onclick="aggiungi('IN')">ENTRATA</button>
+            <button class="btn" style="background:var(--red)" onclick="aggiungi('OUT')">SPESA</button>
+        </div>
+    </div>
+
+    <div class="card" id="lista-card">
+        <div style="font-weight: bold; margin-bottom: 10px;">Movimenti del mese</div>
+        <div id="lista"></div>
+    </div>
+
+    <div class="backup-section">
+        <div onclick="document.getElementById('backup-box').style.display='block'">⚙️ Impostazioni Backup</div>
+        <div id="backup-box" style="display:none; margin-top: 15px;">
+            <p>Copia questo codice per salvare i dati:</p>
+            <textarea id="export-area" readonly></textarea>
+            <button class="btn" style="background:#8e8e93; margin-top:10px;" onclick="esporta()">Genera Codice Backup</button>
+            
+            <p style="margin-top:20px;">Incolla un codice per ripristinare:</p>
+            <textarea id="import-area" placeholder="Incolla qui il codice di backup..."></textarea>
+            <button class="btn" style="background:var(--blue); margin-top:10px;" onclick="importa()">Ripristina Dati</button>
+            
+            <button onclick="if(confirm('CANCELLARE TUTTO?')) { localStorage.clear(); location.reload(); }" style="color:red; background:none; border:none; margin-top:30px; font-size: 0.8em;">Svuota database completamente</button>
+        </div>
+    </div>
+
+    <script>
+        let movimenti = JSON.parse(localStorage.getItem('wallet_v5')) || [];
+        let dataVisualizzata = new Date();
+
+        function aggiornaUI() {
+            const lista = document.getElementById('lista');
+            lista.innerHTML = '';
+            const meseCorrente = dataVisualizzata.getMonth();
+            const annoCorrente = dataVisualizzata.getFullYear();
+            const oggi = new Date();
+            
+            document.getElementById('mese-titolo').innerText = dataVisualizzata.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }).toUpperCase();
+
+            let entrate = 0, uscite = 0;
+            const movFiltrati = movimenti.filter(m => {
+                const d = new Date(m.dataISO);
+                return d.getMonth() === meseCorrente && d.getFullYear() === annoCorrente;
+            });
+
+            movFiltrati.forEach((m, idx) => {
+                const val = parseFloat(m.importo);
+                if(m.tipo === 'IN') entrate += val; else uscite += val;
+                lista.innerHTML += `
+                    <div class="item">
+                        <div><b>${m.desc}</b><div style="font-size:0.7em; color:gray;">${new Date(m.dataISO).toLocaleDateString()}</div></div>
+                        <div class="amount" style="color:${m.tipo === 'IN' ? 'var(--green)' : 'var(--red)'}" onclick="elimina('${m.dataISO}')">
+                            ${m.tipo === 'IN' ? '+' : '-'}€${val.toFixed(2)}
+                        </div>
+                    </div>`;
+            });
+
+            const saldo = entrate - uscite;
+            document.getElementById('saldo').innerText = `€ ${saldo.toFixed(2)}`;
+            document.getElementById('saldo').style.color = saldo < 0 ? 'var(--red)' : 'var(--green)';
+
+            const isMeseAttuale = meseCorrente === oggi.getMonth() && annoCorrente === oggi.getFullYear();
+            if(isMeseAttuale) {
+                document.getElementById('advice-container').style.display = 'block';
+                const giorniRimasti = new Date(annoCorrente, meseCorrente + 1, 0).getDate() - oggi.getDate() + 1;
+                const limite = saldo > 0 ? (saldo / giorniRimasti) : 0;
+                document.getElementById('daily-limit').innerText = `€ ${limite.toFixed(2)}`;
+            } else {
+                document.getElementById('advice-container').style.display = 'none';
+            }
+            
+            localStorage.setItem('wallet_v5', JSON.stringify(movimenti));
+        }
+
+        function aggiungi(tipo) {
+            const d = document.getElementById('desc').value, e = document.getElementById('euro').value;
+            if(!d || !e) return;
+            movimenti.unshift({ desc: d, importo: e, tipo: tipo, dataISO: new Date().toISOString() });
+            document.getElementById('desc').value = ''; document.getElementById('euro').value = '';
+            aggiornaUI();
+        }
+
+        function elimina(iso) {
+            if(confirm("Eliminare questa voce?")) {
+                movimenti = movimenti.filter(m => m.dataISO !== iso);
+                aggiornaUI();
+            }
+        }
+
+        function cambiaMese(dir) {
+            dataVisualizzata.setMonth(dataVisualizzata.getMonth() + dir);
+            aggiornaUI();
+        }
+
+        function esporta() {
+            document.getElementById('export-area').value = btoa(JSON.stringify(movimenti));
+            alert("Codice generato! Copialo dal riquadro.");
+        }
+
+        function importa() {
+            const codice = document.getElementById('import-area').value;
+            if(!codice) return;
+            try {
+                movimenti = JSON.parse(atob(codice));
+                aggiornaUI();
+                alert("Dati importati con successo!");
+            } catch(e) { alert("Codice non valido."); }
+        }
+
+        aggiornaUI();
+    </script>
+</body>
+</html>
