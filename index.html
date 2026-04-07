@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wallet Dinamico</title>
+    <title>Wallet Auto-Fisse</title>
     
     <!-- Configurazione iPhone 8: Icona Rossa -->
-    <link rel="apple-touch-icon" href="https://placeholder.com">
+    <link rel="apple-touch-icon" href="https://icons8.com">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#FF3B30">
@@ -18,7 +18,6 @@
         .nav-mese { text-align: center; font-weight: bold; color: var(--blue); font-size: 0.8em; }
         #saldo { font-size: 2.1em; font-weight: bold; text-align: center; margin: 5px 0; }
         
-        /* Layout Celle Budget */
         .budget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         .budget-cell { padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #ddd; background: white; }
         .full-width { grid-column: span 2; background: var(--light-blue); border: 2px solid var(--blue); }
@@ -28,6 +27,7 @@
         .btn { border: none; padding: 12px; border-radius: 8px; color: white; font-weight: bold; flex: 1; cursor: pointer; }
         .item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f2f2f7; align-items: center; }
         .data-mov { font-size: 0.7em; color: gray; display: block; }
+        .badge-fissa { font-size: 0.7em; background: #eee; padding: 2px 5px; border-radius: 4px; color: #666; }
     </style>
 </head>
 <body>
@@ -38,21 +38,16 @@
     </div>
 
     <div class="budget-grid">
-        <!-- CELLA DINAMICA: Somma i risparmi dei giorni scorsi -->
         <div class="budget-cell full-width">
             <div style="font-size: 0.7em; color: var(--blue); font-weight: bold;">DA SPENDERE OGGI</div>
             <div id="budget-odierno" style="font-size: 1.8em; font-weight: bold; color: var(--blue);">€ 0.00</div>
             <div id="bonus-info" style="font-size: 0.6em; color: var(--green);">Include risparmi accumulati</div>
         </div>
-        
-        <!-- CELLA FISSA: Monitora se oggi superi i 20€ -->
         <div id="card-fisso" class="budget-cell">
             <div style="font-size: 0.6em; color: gray; font-weight: bold;">LIMITE FISSO</div>
             <div style="font-size: 1.1em; font-weight: bold;">€ 20.00</div>
             <div id="status-fisso" style="font-size: 0.5em; color: gray;">OK OGGI</div>
         </div>
-
-        <!-- CELLA CICLO: Media fino al prossimo stipendio -->
         <div class="budget-cell">
             <div style="font-size: 0.6em; color: gray; font-weight: bold;">MEDIA CICLO</div>
             <div id="media-ciclo" style="font-size: 1.1em; font-weight: bold;">€ 0.00</div>
@@ -62,19 +57,20 @@
 
     <div class="card">
         <div class="input-row">
-            <input type="text" id="desc" placeholder="Cosa hai comprato?">
+            <input type="text" id="desc" placeholder="Descrizione">
             <input type="number" id="euro" placeholder="€" style="width: 100px;">
         </div>
         <div class="input-row">
             <button class="btn" style="background:var(--green)" onclick="aggiungi('IN')">ENTRATA</button>
             <button class="btn" style="background:var(--red)" onclick="aggiungi('OUT')">SPESA</button>
         </div>
+        <!-- Tasto Spese Fisse Ricorrenti -->
+        <button class="btn" style="background:#8e8e93; width:100%; margin-top:5px;" onclick="aggiungi('FIX')">+ SALVA COME RICORRENTE (Mensile)</button>
     </div>
 
     <div class="card">
-        <div style="font-weight: bold; margin-bottom: 10px; font-size: 0.9em;">Movimenti Recenti</div>
+        <div style="font-weight: bold; margin-bottom: 10px; font-size: 0.9em;">Movimenti Ciclo</div>
         <div id="lista"></div>
-        
         <div style="display: flex; gap: 5px; margin-top: 15px;">
             <button class="btn" style="background:var(--blue); font-size: 0.7em;" onclick="esportaCSV()">📥 EXPORT</button>
             <button class="btn" style="background:var(--orange); font-size: 0.7em;" onclick="resetBonus()">🔄 RESET</button>
@@ -83,6 +79,7 @@
 
     <script>
         let movimenti = JSON.parse(localStorage.getItem('wallet_v7')) || [];
+        let ricorrenti = JSON.parse(localStorage.getItem('ricorrenti')) || [];
         let giornoStipendio = 23;
         const SOGLIA_GIORNALIERA = 20.00;
 
@@ -94,7 +91,25 @@
             return { inizio, fine };
         }
 
+        // Caricamento automatico spese fisse
+        function checkRicorrenti() {
+            const { inizio } = getLimitiCiclo();
+            ricorrenti.forEach(r => {
+                const esiste = movimenti.some(m => m.desc === r.desc && new Date(m.dataISO) >= inizio);
+                if (!esiste) {
+                    movimenti.unshift({ 
+                        desc: r.desc, 
+                        importo: r.importo, 
+                        tipo: 'OUT', 
+                        isFissa: true,
+                        dataISO: inizio.toISOString()
+                    });
+                }
+            });
+        }
+
         function aggiornaUI() {
+            checkRicorrenti();
             const lista = document.getElementById('lista');
             lista.innerHTML = '';
             const { inizio, fine } = getLimitiCiclo();
@@ -103,21 +118,18 @@
             
             document.getElementById('ciclo-testo').innerText = `CICLO: ${inizio.toLocaleDateString()} - ${fine.toLocaleDateString()}`;
 
-            let entrateTotali = 0, usciteTotali = 0, usciteOggi = 0;
-            let speseFinoAIeri = 0;
-
-            // Calcolo giorni passati dall'inizio del ciclo a oggi
+            let entrateTotali = 0, usciteTotali = 0, usciteOggi = 0, speseFinoAIeri = 0;
             const millisecondiAlGiorno = 24 * 60 * 60 * 1000;
             const giorniTrascorsi = Math.floor((oggi - inizio) / millisecondiAlGiorno) + 1;
 
             movimenti.forEach((m) => {
                 const dataM = new Date(m.dataISO);
-                const dataM_Pura = new Date(m.dataISO);
-                dataM_Pura.setHours(0,0,0,0);
-
                 if (dataM >= inizio) {
                     const val = parseFloat(m.importo);
                     if(m.tipo === 'IN') entrateTotali += val; else usciteTotali += val;
+                    
+                    const dataM_Pura = new Date(m.dataISO);
+                    dataM_Pura.setHours(0,0,0,0);
                     
                     if(dataM_Pura.getTime() === oggi.getTime() && m.tipo === 'OUT') {
                         usciteOggi += val;
@@ -127,7 +139,10 @@
 
                     lista.innerHTML += `
                         <div class="item">
-                            <div><span class="data-mov">${dataM.toLocaleDateString()}</span><b>${m.desc}</b></div>
+                            <div>
+                                <span class="data-mov">${dataM.toLocaleDateString()}</span>
+                                <b>${m.desc}</b> ${m.isFissa ? '<span class="badge-fissa">FISSA</span>' : ''}
+                            </div>
                             <div style="font-weight:bold; color:${m.tipo === 'IN' ? 'var(--green)' : 'var(--red)'}" onclick="elimina('${m.dataISO}')">
                                 ${m.tipo === 'IN' ? '+' : '-'}€${val.toFixed(2)}
                             </div>
@@ -135,12 +150,11 @@
                 }
             });
 
-            // 1. BUDGET ODIERNO (DINAMICO)
-            // Calcolo: (Budget base * giorni passati) - spese totali fatte finora
+            // Budget Odierno Dinamico
             const budgetOdiernoDinamico = (giorniTrascorsi * SOGLIA_GIORNALIERA) - (speseFinoAIeri + usciteOggi);
             document.getElementById('budget-odierno').innerText = `€ ${budgetOdiernoDinamico.toFixed(2)}`;
 
-            // 2. LIMITE FISSO (ALERT ROSSO)
+            // Limite Fisso (Alert Rosso)
             const cardFisso = document.getElementById('card-fisso');
             if (usciteOggi > SOGLIA_GIORNALIERA) {
                 cardFisso.style.background = "#fff2f2";
@@ -154,21 +168,26 @@
                 document.getElementById('status-fisso').style.color = "gray";
             }
 
-            // 3. MEDIA CICLO E SALDO
             const saldoAttuale = entrateTotali - usciteTotali;
             document.getElementById('saldo').innerText = `€ ${saldoAttuale.toFixed(2)}`;
             const diffGiorniFine = Math.ceil((fine - oggi + 1) / millisecondiAlGiorno);
             const media = saldoAttuale > 0 ? (saldoAttuale / Math.max(diffGiorniFine, 1)) : 0;
             document.getElementById('media-ciclo').innerText = `€ ${media.toFixed(2)}`;
-            document.getElementById('days-left').innerText = `${diffGiorniFine} gg al stipendio`;
+            document.getElementById('days-left').innerText = `${diffGiorniFine} gg al 23`;
             
             localStorage.setItem('wallet_v7', JSON.stringify(movimenti));
+            localStorage.setItem('ricorrenti', JSON.stringify(ricorrenti));
         }
 
         function aggiungi(tipo) {
             const d = document.getElementById('desc').value, e = document.getElementById('euro').value;
             if(!d || !e) return;
-            movimenti.unshift({ desc: d, importo: e, tipo: tipo, dataISO: new Date().toISOString() });
+            if(tipo === 'FIX') {
+                ricorrenti.push({ desc: d, importo: e });
+                alert("Spesa fissa salvata!");
+            } else {
+                movimenti.unshift({ desc: d, importo: e, tipo: tipo, dataISO: new Date().toISOString() });
+            }
             document.getElementById('desc').value = ''; document.getElementById('euro').value = '';
             aggiornaUI();
         }
@@ -177,7 +196,10 @@
             let csv = "Data;Descrizione;Tipo;Importo\n";
             movimenti.forEach(m => csv += `${new Date(m.dataISO).toLocaleDateString()};${m.desc};${m.tipo};${m.importo}\n`);
             const blob = new Blob([csv], { type: 'text/csv' });
-            window.open(URL.createObjectURL(blob));
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'wallet_export.csv';
+            a.click();
         }
 
         function resetBonus() {
@@ -189,7 +211,11 @@
         }
 
         function elimina(iso) {
-            if(confirm("Eliminare?")) {
+            if(confirm("Eliminare voce?")) {
+                const riga = movimenti.find(m => m.dataISO === iso);
+                if(riga && riga.isFissa && confirm("Rimuovere anche dalle ricorrenti future?")) {
+                    ricorrenti = ricorrenti.filter(r => r.desc !== riga.desc);
+                }
                 movimenti = movimenti.filter(m => m.dataISO !== iso);
                 aggiornaUI();
             }
