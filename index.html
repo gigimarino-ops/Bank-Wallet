@@ -4,18 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wallet Auto-Fisse</title>
+    
+    <!-- Configurazione iPhone 8: Icona Rossa e Tema -->
+    <link rel="apple-touch-icon" href="https://placeholder.com">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#FF3B30">
+
     <style>
-        :root { --bg: #f2f2f7; --card: #ffffff; --blue: #007aff; --red: #ff3b30; --green: #34c759; --orange: #ff9500; }
+        :root { --bg: #f2f2f7; --card: #ffffff; --blue: #007aff; --red: #ff3b30; --green: #34c759; --orange: #ff9500; --light-blue: #e8f4fd; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; font-size: 15px; }
         .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 10px; }
         .nav-mese { text-align: center; font-weight: bold; color: var(--blue); font-size: 0.9em; }
         #saldo { font-size: 2.3em; font-weight: bold; text-align: center; margin: 10px 0; }
-        .daily-advice { text-align: center; padding: 10px; border-radius: 10px; background: #fff9e6; border: 1px solid var(--orange); margin-bottom: 10px; }
+        
+        /* Nuove celle Budget */
+        .budget-container { display: flex; gap: 10px; margin-bottom: 10px; }
+        .budget-cell { flex: 1; padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #ddd; }
+        .dinamica { background: var(--light-blue); border: 2px solid var(--blue); }
+        .fissa-card { background: white; }
+        
         .input-row { display: flex; gap: 5px; margin-bottom: 8px; }
         input { border: 1px solid #d1d1d6; padding: 12px; border-radius: 8px; font-size: 16px; width: 100%; -webkit-appearance: none; }
-        .btn { border: none; padding: 12px; border-radius: 8px; color: white; font-weight: bold; flex: 1; }
+        .btn { border: none; padding: 12px; border-radius: 8px; color: white; font-weight: bold; flex: 1; cursor: pointer; }
         .item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f2f2f7; align-items: center; }
+        .data-mov { font-size: 0.7em; color: gray; display: block; }
         .badge-fissa { font-size: 0.7em; background: #eee; padding: 2px 5px; border-radius: 4px; color: #666; }
     </style>
 </head>
@@ -26,10 +39,18 @@
         <div id="saldo">€ 0.00</div>
     </div>
 
-    <div class="daily-advice">
-        <div style="font-size: 0.8em; color: var(--orange); font-weight: bold;">BUDGET GIORNALIERO</div>
-        <div id="daily-limit" style="font-size: 1.6em; font-weight: bold;">€ 0.00</div>
-        <div id="days-left" style="font-size: 0.7em; color: gray;"></div>
+    <!-- Nuove Celle Richieste -->
+    <div class="budget-container">
+        <div class="budget-cell dinamica">
+            <div style="font-size: 0.7em; color: var(--blue); font-weight: bold;">BUDGET ODIERNO</div>
+            <div id="daily-limit" style="font-size: 1.4em; font-weight: bold;">€ 0.00</div>
+            <div id="bonus-label" style="font-size: 0.6em; color: var(--green);">Bonus risparmio incl.</div>
+        </div>
+        <div id="card-giornaliera" class="budget-cell fissa-card">
+            <div style="font-size: 0.7em; color: gray; font-weight: bold;">LIMITE FISSO</div>
+            <div id="fixed-threshold" style="font-size: 1.4em; font-weight: bold; color: #333;">€ 20.00</div>
+            <div id="days-left" style="font-size: 0.6em; color: gray;">- giorni al 23</div>
+        </div>
     </div>
 
     <div class="card">
@@ -41,20 +62,24 @@
             <button class="btn" style="background:var(--green)" onclick="aggiungi('IN')">ENTRATA</button>
             <button class="btn" style="background:var(--red)" onclick="aggiungi('OUT')">SPESA</button>
         </div>
-        <button class="btn" style="background:#8e8e93; width:100%; margin-top:5px;" onclick="aggiungi('FIX')">+ SALVA COME RICORRENTE (Ogni mese)</button>
+        <button class="btn" style="background:#8e8e93; width:100%; margin-top:5px;" onclick="aggiungi('FIX')">+ SALVA COME RICORRENTE (Mensile)</button>
     </div>
 
     <div class="card">
         <div style="font-weight: bold; margin-bottom: 10px;">Movimenti Ciclo</div>
         <div id="lista"></div>
+        
+        <div style="display: flex; gap: 5px; margin-top: 15px;">
+            <button class="btn" style="background:var(--blue); font-size: 0.8em;" onclick="esportaCSV()">📥 EXPORT CSV</button>
+            <button class="btn" style="background:var(--orange); font-size: 0.8em;" onclick="resetBonus()">🔄 RESET BUDGET</button>
+        </div>
     </div>
-
-    <div style="text-align:center; font-size:0.8em; color:gray; padding:20px;" onclick="location.reload()">🔄 Aggiorna / Backup</div>
 
     <script>
         let movimenti = JSON.parse(localStorage.getItem('wallet_v7')) || [];
         let ricorrenti = JSON.parse(localStorage.getItem('ricorrenti')) || [];
         let giornoStipendio = 23;
+        const SOGLIA_FISSA = 20.00;
 
         function getLimitiCiclo() {
             const oggi = new Date();
@@ -64,42 +89,34 @@
             return { inizio, fine };
         }
 
-        // Funzione che inserisce le spese fisse se siamo in un nuovo ciclo
-        function checkRicorrenti() {
-            const { inizio } = getLimitiCiclo();
-            ricorrenti.forEach(r => {
-                // Controlla se questa spesa fissa esiste già in questo ciclo
-                const esiste = movimenti.some(m => m.desc === r.desc && new Date(m.dataISO) >= inizio);
-                if (!esiste) {
-                    movimenti.unshift({ 
-                        desc: r.desc, 
-                        importo: r.importo, 
-                        tipo: 'OUT', 
-                        isFissa: true,
-                        dataISO: inizio.toISOString() // La segna al primo giorno del ciclo
-                    });
-                }
-            });
-        }
-
         function aggiornaUI() {
-            checkRicorrenti();
             const lista = document.getElementById('lista');
             lista.innerHTML = '';
             const { inizio, fine } = getLimitiCiclo();
             const oggi = new Date();
+            oggi.setHours(0,0,0,0);
             
             document.getElementById('ciclo-testo').innerText = `CICLO: ${inizio.toLocaleDateString()} - ${fine.toLocaleDateString()}`;
 
-            let entrate = 0, uscite = 0;
-            movimenti.forEach((m, idx) => {
+            let entrate = 0, uscite = 0, usciteOggi = 0;
+
+            movimenti.forEach((m) => {
                 const dataM = new Date(m.dataISO);
                 if (dataM >= inizio) {
                     const val = parseFloat(m.importo);
                     if(m.tipo === 'IN') entrate += val; else uscite += val;
+                    
+                    // Calcolo spese di oggi per alert cella fissa
+                    const dataM_SenzaOra = new Date(m.dataISO);
+                    dataM_SenzaOra.setHours(0,0,0,0);
+                    if(dataM_SenzaOra.getTime() === oggi.getTime() && m.tipo === 'OUT') usciteOggi += val;
+
                     lista.innerHTML += `
                         <div class="item">
-                            <div><b>${m.desc}</b> ${m.isFissa ? '<span class="badge-fissa">FISSA</span>' : ''}</div>
+                            <div>
+                                <span class="data-mov">${dataM.toLocaleDateString()}</span>
+                                <b>${m.desc}</b> ${m.isFissa ? '<span class="badge-fissa">FISSA</span>' : ''}
+                            </div>
                             <div style="font-weight:bold; color:${m.tipo === 'IN' ? 'var(--green)' : 'var(--red)'}" onclick="elimina('${m.dataISO}')">
                                 ${m.tipo === 'IN' ? '+' : '-'}€${val.toFixed(2)}
                             </div>
@@ -107,13 +124,26 @@
                 }
             });
 
-            const saldo = entrate - uscite;
-            document.getElementById('saldo').innerText = `€ ${saldo.toFixed(2)}`;
-            const diffGiorni = Math.ceil((fine - oggi + 1000) / (24*60*60*1000));
-            const limite = saldo > 0 ? (saldo / Math.max(diffGiorni, 1)) : 0;
-            
-            document.getElementById('daily-limit').innerText = `€ ${limite.toFixed(2)}`;
-            document.getElementById('days-left').innerText = `Mancano ${diffGiorni} giorni al prossimo stipendio`;
+            const saldoTotale = entrate - uscite;
+            document.getElementById('saldo').innerText = `€ ${saldoTotale.toFixed(2)}`;
+
+            // LOGICA BUDGET DINAMICO
+            const diffGiorniMancanti = Math.ceil((fine - oggi + 1) / (24*60*60*1000));
+            const budgetDinamico = saldoTotale > 0 ? (saldoTotale / Math.max(diffGiorniMancanti, 1)) : 0;
+            document.getElementById('daily-limit').innerText = `€ ${budgetDinamico.toFixed(2)}`;
+            document.getElementById('days-left').innerText = `${diffGiorniMancanti} gg al prossimo`;
+
+            // LOGICA CELLA FISSA (ROSSA SE SFORI 20€ OGGI)
+            const cardFissa = document.getElementById('card-giornaliera');
+            if (usciteOggi > SOGLIA_FISSA) {
+                cardFissa.style.background = "#fff2f2";
+                cardFissa.style.borderColor = "var(--red)";
+                document.getElementById('fixed-threshold').style.color = "var(--red)";
+            } else {
+                cardFissa.style.background = "white";
+                cardFissa.style.borderColor = "#ddd";
+                document.getElementById('fixed-threshold').style.color = "#333";
+            }
             
             localStorage.setItem('wallet_v7', JSON.stringify(movimenti));
             localStorage.setItem('ricorrenti', JSON.stringify(ricorrenti));
@@ -125,23 +155,38 @@
 
             if(tipo === 'FIX') {
                 ricorrenti.push({ desc: d, importo: e });
-                alert("Salvata come spesa ricorrente per ogni mese!");
+                alert("Spesa fissa salvata!");
             } else {
                 movimenti.unshift({ desc: d, importo: e, tipo: tipo, dataISO: new Date().toISOString() });
             }
-
             document.getElementById('desc').value = ''; document.getElementById('euro').value = '';
             aggiornaUI();
+        }
+
+        function esportaCSV() {
+            let csv = "Data;Descrizione;Tipo;Importo\n";
+            movimenti.forEach(m => {
+                csv += `${new Date(m.dataISO).toLocaleDateString()};${m.desc};${m.tipo};${m.importo}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'wallet_export.csv';
+            a.click();
+        }
+
+        function resetBonus() {
+            if(confirm("Vuoi resettare tutti i movimenti del ciclo attuale?")) {
+                const { inizio } = getLimitiCiclo();
+                movimenti = movimenti.filter(m => new Date(m.dataISO) < inizio);
+                aggiornaUI();
+            }
         }
 
         function elimina(iso) {
             if(confirm("Eliminare voce?")) {
                 movimenti = movimenti.filter(m => m.dataISO !== iso);
-                // Se elimini una fissa dal ciclo, chiediamo se vuoi rimuoverla anche dalle future
-                if(confirm("Vuoi rimuoverla anche dalle spese fisse automatiche dei prossimi mesi?")) {
-                    const descDaRimuovere = movimenti.find(m => m.dataISO === iso)?.desc;
-                    ricorrenti = ricorrenti.filter(r => r.desc !== descDaRimuovere);
-                }
                 aggiornaUI();
             }
         }
