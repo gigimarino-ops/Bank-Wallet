@@ -3,65 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wallet iPhone 8 - Ripristinato</title>
+    <title>Wallet Minimal</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
-        :root { --bg: #f2f2f7; --card: #ffffff; --blue: #007aff; --red: #ff3b30; --green: #34c759; --gray: #8e8e93; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; }
-        .card { background: var(--card); padding: 18px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 15px; }
-        #saldo { font-size: 2.2rem; font-weight: 800; text-align: center; margin: 10px 0; }
-        .budget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .budget-cell { padding: 15px; border-radius: 14px; text-align: center; background: white; border: 1px solid #ddd; }
-        .full-width { grid-column: span 2; background: #e8f2ff; border: 1px solid var(--blue); }
-        .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
-        input { border: 1px solid #d1d1d6; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; outline: none; }
-        .btn { border: none; padding: 14px; border-radius: 10px; color: white; font-weight: 700; flex: 1; cursor: pointer; }
-        .item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .del { color: var(--red); margin-left: 10px; font-weight: bold; font-size: 1.2rem; }
+        :root { --bg: #f2f2f7; --card: #ffffff; --dark: #1c1c1e; --blue: #007aff; --green: #34c759; --gray: #8e8e93; --light-gray: #d1d1d6; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--dark); }
+        
+        .header { text-align: center; margin-bottom: 25px; }
+        .header span { font-size: 0.7rem; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; }
+        #saldo { font-size: 2.5rem; font-weight: 800; margin: 5px 0; letter-spacing: -1px; }
+        
+        .stats-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+        .stat-box { background: var(--card); padding: 12px; border-radius: 12px; flex: 1; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+        .stat-label { font-size: 0.6rem; color: var(--gray); font-weight: 700; margin-bottom: 4px; }
+        .stat-value { font-size: 1.1rem; font-weight: 700; }
+
+        .card { background: var(--card); padding: 18px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 15px; }
+        input { border: 1px solid var(--light-gray); padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; outline: none; margin-bottom: 10px; background: #fafafa; }
+        
+        .btn-row { display: flex; gap: 8px; }
+        .btn { border: none; padding: 14px; border-radius: 10px; color: white; font-weight: 700; flex: 1; cursor: pointer; font-size: 0.85rem; transition: opacity 0.2s; }
+        .btn:active { opacity: 0.7; }
+        .btn-black { background: var(--dark); }
+        .btn-green { background: var(--green); }
+        .btn-gray { background: var(--gray); }
+
+        .section-title { font-size: 0.8rem; font-weight: 700; margin: 20px 0 10px 5px; color: var(--gray); text-transform: uppercase; }
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f2; }
+        .item:last-child { border-bottom: none; }
+        .item b { font-size: 0.95rem; display: block; }
+        .item small { color: var(--gray); font-size: 0.7rem; }
+        .del { color: var(--light-gray); font-size: 1.2rem; padding: 0 5px; margin-left: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div id="ciclo-testo" style="text-align:center; font-size:0.7rem; color:gray; text-transform:uppercase;">Caricamento...</div>
+    <div class="header">
+        <span id="ciclo-testo">---</span>
         <div id="saldo">€ 0.00</div>
     </div>
 
-    <div class="budget-grid">
-        <div class="budget-cell full-width">
-            <div style="font-size: 0.7rem; color: var(--blue); font-weight: bold;">DISPONIBILE TOTALE</div>
-            <div id="budget-odierno" style="font-size: 1.8rem; font-weight: 800; color: var(--blue);">€ 0.00</div>
+    <div class="stats-row">
+        <div class="stat-box">
+            <div class="stat-label">DISPONIBILE OGGI</div>
+            <div id="budget-odierno" class="stat-value" style="color: var(--blue);">€ 0.00</div>
         </div>
-        <div class="budget-cell">
-            <div style="font-size: 0.65rem; color: gray; font-weight: bold;">RESTO OGGI</div>
-            <div id="resto-oggi" style="font-size: 1.2rem; font-weight: 700; color: var(--green);">€ 20.00</div>
-        </div>
-        <div class="budget-cell">
-            <div style="font-size: 0.65rem; color: gray; font-weight: bold;">GIORNI AL 23</div>
-            <div id="days-left" style="font-size: 1.2rem; font-weight: 700;">-</div>
+        <div class="stat-box">
+            <div class="stat-label">GIORNI AL 23</div>
+            <div id="days-left" class="stat-value">--</div>
         </div>
     </div>
 
     <div class="card">
-        <div class="input-row">
-            <input type="text" id="desc" placeholder="Cosa?">
-            <input type="number" id="euro" placeholder="€" step="0.01" style="width: 100px;">
-        </div>
-        <div class="input-row">
-            <button class="btn" style="background:var(--green)" onclick="aggiungi('IN')">ENTRATA</button>
-            <button class="btn" style="background:var(--red)" onclick="aggiungi('OUT')">SPESA</button>
+        <input type="text" id="desc" placeholder="Cosa? (es. Spesa, Pizza...)">
+        <input type="number" id="euro" placeholder="Importo €" step="0.01">
+        <div class="btn-row">
+            <button class="btn btn-green" onclick="aggiungi('IN')">ENTRATA</button>
+            <button class="btn btn-black" onclick="aggiungi('OUT')">SPESA</button>
         </div>
     </div>
 
-    <div class="card">
+    <div class="section-title">Movimenti Recorrenti (Fissi)</div>
+    <div class="card" style="padding: 10px 15px;">
+        <div id="lista-ricorrenti"></div>
+        <button class="btn btn-gray" style="width:100%; margin-top:10px; font-size:0.7rem; padding:8px;" onclick="aggiungiRicorrente()">+ AGGIUNGI FISSA</button>
+    </div>
+
+    <div class="section-title">Cronologia</div>
+    <div class="card" style="padding: 10px 15px;">
         <div id="lista"></div>
-        <button class="btn" style="background:var(--gray); width:100%; margin-top:15px; font-size:0.7rem;" onclick="resetDati()">🔄 RESET DATI</button>
     </div>
+
+    <button style="background:none; border:none; color:var(--light-gray); width:100%; font-size:0.7rem; margin: 20px 0;" onclick="resetDati()">RESET COMPLETO</button>
 
     <script>
-        let movimenti = JSON.parse(localStorage.getItem('wallet_v12')) || [];
-        const SOGLIA = 20.00;
+        let movimenti = JSON.parse(localStorage.getItem('wallet_v13')) || [];
+        let ricorrenti = JSON.parse(localStorage.getItem('ricorrenti_v13')) || [];
+        const SOGLIA_GIORNO = 20.00;
         const GIORNO_S = 23;
 
         function getCiclo() {
@@ -75,18 +94,26 @@
         function aggiungi(tipo) {
             let d = document.getElementById('desc').value || (tipo==='IN'?'Entrata':'Spesa');
             let e = parseFloat(document.getElementById('euro').value);
-            if (isNaN(e) || e <= 0) return alert("Inserisci importo");
-            
+            if (isNaN(e) || e <= 0) return;
             movimenti.unshift({ desc: d, importo: e, tipo: tipo, data: new Date().toISOString() });
-            localStorage.setItem('wallet_v12', JSON.stringify(movimenti));
-            
-            document.getElementById('desc').value = '';
-            document.getElementById('euro').value = '';
+            localStorage.setItem('wallet_v13', JSON.stringify(movimenti));
+            document.getElementById('desc').value = ''; document.getElementById('euro').value = '';
             aggiornaUI();
         }
 
+        function aggiungiRicorrente() {
+            let d = prompt("Nome spesa fissa (es. Affitto):");
+            let e = parseFloat(prompt("Importo mensile:"));
+            if (d && !isNaN(e)) {
+                ricorrenti.push({ desc: d, importo: e });
+                localStorage.setItem('ricorrenti_v13', JSON.stringify(ricorrenti));
+                aggiornaUI();
+            }
+        }
+
+        function elimina(iso) { movimenti = movimenti.filter(m => m.data !== iso); localStorage.setItem('wallet_v13', JSON.stringify(movimenti)); aggiornaUI(); }
+        function eliminaR(index) { ricorrenti.splice(index, 1); localStorage.setItem('ricorrenti_v13', JSON.stringify(ricorrenti)); aggiornaUI(); }
         function resetDati() { if(confirm("Cancelli tutto?")) { localStorage.clear(); location.reload(); } }
-        function elimina(iso) { movimenti = movimenti.filter(m => m.data !== iso); localStorage.setItem('wallet_v12', JSON.stringify(movimenti)); aggiornaUI(); }
 
         function aggiornaUI() {
             let { inizio, fine } = getCiclo();
@@ -94,24 +121,33 @@
             document.getElementById('ciclo-testo').innerText = `Ciclo: ${inizio.toLocaleDateString()} - ${fine.toLocaleDateString()}`;
 
             let saldo = 0, speseOggi = 0, spesePassate = 0;
-            let lista = document.getElementById('lista');
-            lista.innerHTML = '';
+            
+            // Calcolo Ricorrenti
+            let totRicorrenti = 0;
+            let divR = document.getElementById('lista-ricorrenti');
+            divR.innerHTML = '';
+            ricorrenti.forEach((r, idx) => {
+                totRicorrenti += r.importo;
+                divR.innerHTML += `<div class="item"><div><b>${r.desc}</b></div><div>€${r.importo.toFixed(2)} <span class="del" onclick="eliminaR(${idx})">×</span></div></div>`;
+            });
+            saldo -= totRicorrenti;
 
+            // Calcolo Movimenti
+            let divL = document.getElementById('lista');
+            divL.innerHTML = '';
             movimenti.forEach(m => {
                 let dataM = new Date(m.data);
                 if (dataM >= inizio) {
                     if (m.tipo === 'IN') saldo += m.importo; else saldo -= m.importo;
-                    
                     if (m.tipo === 'OUT') {
                         let dPura = new Date(m.data); dPura.setHours(0,0,0,0);
                         if (dPura.getTime() === oggi.getTime()) speseOggi += m.importo;
                         else if (dPura < oggi) spesePassate += m.importo;
                     }
-
-                    lista.innerHTML += `<div class="item">
-                        <div><small>${dataM.toLocaleDateString()}</small><br><b>${m.desc}</b></div>
+                    divL.innerHTML += `<div class="item">
+                        <div><b>${m.desc}</b><small>${dataM.toLocaleDateString()}</small></div>
                         <div style="display:flex; align-items:center;">
-                            <span style="color:${m.tipo==='IN'?'var(--green)':'var(--red)'}; font-weight:bold;">${m.tipo==='IN'?'+':'-'}€${m.importo.toFixed(2)}</span>
+                            <span style="color:${m.tipo==='IN'?'var(--green)':'var(--dark)'}; font-weight:700;">${m.tipo==='IN'?'+':'-'} €${m.importo.toFixed(2)}</span>
                             <span class="del" onclick="elimina('${m.data}')">×</span>
                         </div>
                     </div>`;
@@ -119,13 +155,10 @@
             });
 
             let ggP = Math.floor((oggi - inizio) / 86400000) + 1;
-            let bAcc = (ggP * SOGLIA) - (spesePassate + speseOggi);
-            let rOggi = SOGLIA - speseOggi;
+            let bAcc = (ggP * SOGLIA_GIORNO) - (spesePassate + speseOggi);
 
             document.getElementById('saldo').innerText = `€ ${saldo.toFixed(2)}`;
             document.getElementById('budget-odierno').innerText = `€ ${bAcc.toFixed(2)}`;
-            document.getElementById('resto-oggi').innerText = `€ ${rOggi.toFixed(2)}`;
-            document.getElementById('resto-oggi').style.color = rOggi < 0 ? 'var(--red)' : 'var(--green)';
             document.getElementById('days-left').innerText = Math.ceil((fine - oggi) / 86400000) + " gg";
         }
         aggiornaUI();
