@@ -1,227 +1,78 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wallet Auto-Fisse</title>
+// Cerca questa parte nel tuo script e sostituisci la funzione aggiornaUI 
+// o incolla tutto il blocco sottostante per aggiornare le card
+
+function aggiornaUI() {
+    checkRicorrenti();
+    const { inizio, fine } = getLimitiCiclo();
+    const oggi = new Date();
+    oggi.setHours(0,0,0,0);
     
-    <!-- Configurazione iPhone 8: Icona Rossa -->
-    <link rel="apple-touch-icon" href="https://icons8.com">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#FF3B30">
+    document.getElementById('ciclo-testo').innerText = `Ciclo: ${inizio.toLocaleDateString('it-IT', {day:'2-digit', month:'short'})} - ${fine.toLocaleDateString('it-IT', {day:'2-digit', month:'short'})}`;
 
-    <style>
-        :root { --bg: #f2f2f7; --card: #ffffff; --blue: #007aff; --red: #ff3b30; --green: #34c759; --orange: #ff9500; --light-blue: #e8f4fd; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; font-size: 15px; }
-        .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 10px; }
-        .nav-mese { text-align: center; font-weight: bold; color: var(--blue); font-size: 0.8em; }
-        #saldo { font-size: 2.1em; font-weight: bold; text-align: center; margin: 5px 0; }
-        
-        .budget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .budget-cell { padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #ddd; background: white; }
-        .full-width { grid-column: span 2; background: var(--light-blue); border: 2px solid var(--blue); }
-        
-        .input-row { display: flex; gap: 5px; margin-bottom: 8px; }
-        input { border: 1px solid #d1d1d6; padding: 12px; border-radius: 8px; font-size: 16px; width: 100%; -webkit-appearance: none; }
-        .btn { border: none; padding: 12px; border-radius: 8px; color: white; font-weight: bold; flex: 1; cursor: pointer; }
-        .item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f2f2f7; align-items: center; }
-        .data-mov { font-size: 0.7em; color: gray; display: block; }
-        .badge-fissa { font-size: 0.7em; background: #eee; padding: 2px 5px; border-radius: 4px; color: #666; }
-    </style>
-</head>
-<body>
+    let saldoTotale = 0;
+    let speseVariabiliOggi = 0;
+    let speseVariabiliPassate = 0;
+    
+    const diffGiorni = Math.ceil((fine - oggi) / (1000 * 60 * 60 * 24));
+    document.getElementById('days-left').innerText = diffGiorni > 0 ? diffGiorni : "Oggi";
 
-    <div class="card">
-        <div class="nav-mese" id="ciclo-testo">CARICAMENTO...</div>
-        <div id="saldo">€ 0.00</div>
-    </div>
+    const listaHTML = document.getElementById('lista');
+    listaHTML.innerHTML = '';
 
-    <div class="budget-grid">
-        <div class="budget-cell full-width">
-            <div style="font-size: 0.7em; color: var(--blue); font-weight: bold;">DA SPENDERE OGGI</div>
-            <div id="budget-odierno" style="font-size: 1.8em; font-weight: bold; color: var(--blue);">€ 0.00</div>
-            <div id="bonus-info" style="font-size: 0.6em; color: var(--green);">Include risparmi accumulati</div>
-        </div>
-        <div id="card-fisso" class="budget-cell">
-            <div style="font-size: 0.6em; color: gray; font-weight: bold;">LIMITE FISSO</div>
-            <div style="font-size: 1.1em; font-weight: bold;">€ 20.00</div>
-            <div id="status-fisso" style="font-size: 0.5em; color: gray;">OK OGGI</div>
-        </div>
-        <div class="budget-cell">
-            <div style="font-size: 0.6em; color: gray; font-weight: bold;">MEDIA CICLO</div>
-            <div id="media-ciclo" style="font-size: 1.1em; font-weight: bold;">€ 0.00</div>
-            <div id="days-left" style="font-size: 0.5em; color: gray;">- gg al 23</div>
-        </div>
-    </div>
+    movimenti.forEach(m => {
+        const dataM = new Date(m.dataISO);
+        if (dataM >= inizio && dataM <= new Date(fine.getTime() + 86400000)) {
+            const val = m.importo;
+            if (m.tipo === 'IN') saldoTotale += val; else saldoTotale -= val;
 
-    <div class="card">
-        <div class="input-row">
-            <input type="text" id="desc" placeholder="Descrizione">
-            <input type="number" id="euro" placeholder="€" style="width: 100px;">
-        </div>
-        <div class="input-row">
-            <button class="btn" style="background:var(--green)" onclick="aggiungi('IN')">ENTRATA</button>
-            <button class="btn" style="background:var(--red)" onclick="aggiungi('OUT')">SPESA</button>
-        </div>
-        <!-- Tasto Spese Fisse Ricorrenti -->
-        <button class="btn" style="background:#8e8e93; width:100%; margin-top:5px;" onclick="aggiungi('FIX')">+ SALVA COME RICORRENTE (Mensile)</button>
-    </div>
-
-    <div class="card">
-        <div style="font-weight: bold; margin-bottom: 10px; font-size: 0.9em;">Movimenti Ciclo</div>
-        <div id="lista"></div>
-        <div style="display: flex; gap: 5px; margin-top: 15px;">
-            <button class="btn" style="background:var(--blue); font-size: 0.7em;" onclick="esportaCSV()">📥 EXPORT</button>
-            <button class="btn" style="background:var(--orange); font-size: 0.7em;" onclick="resetBonus()">🔄 RESET</button>
-        </div>
-    </div>
-
-    <script>
-        let movimenti = JSON.parse(localStorage.getItem('wallet_v7')) || [];
-        let ricorrenti = JSON.parse(localStorage.getItem('ricorrenti')) || [];
-        let giornoStipendio = 23;
-        const SOGLIA_GIORNALIERA = 20.00;
-
-        function getLimitiCiclo() {
-            const oggi = new Date();
-            let inizio = new Date(oggi.getFullYear(), oggi.getMonth(), giornoStipendio);
-            if (oggi.getDate() < giornoStipendio) inizio.setMonth(inizio.getMonth() - 1);
-            let fine = new Date(inizio.getFullYear(), inizio.getMonth() + 1, giornoStipendio - 1);
-            return { inizio, fine };
-        }
-
-        // Caricamento automatico spese fisse
-        function checkRicorrenti() {
-            const { inizio } = getLimitiCiclo();
-            ricorrenti.forEach(r => {
-                const esiste = movimenti.some(m => m.desc === r.desc && new Date(m.dataISO) >= inizio);
-                if (!esiste) {
-                    movimenti.unshift({ 
-                        desc: r.desc, 
-                        importo: r.importo, 
-                        tipo: 'OUT', 
-                        isFissa: true,
-                        dataISO: inizio.toISOString()
-                    });
+            // Calcolo uscite NON FISSE per i due budget
+            if (m.tipo === 'OUT' && !m.isFissa) {
+                const dataMPura = new Date(m.dataISO);
+                dataMPura.setHours(0,0,0,0);
+                if (dataMPura.getTime() === oggi.getTime()) {
+                    speseVariabiliOggi += val;
+                } else if (dataMPura < oggi) {
+                    speseVariabiliPassate += val;
                 }
-            });
-        }
-
-        function aggiornaUI() {
-            checkRicorrenti();
-            const lista = document.getElementById('lista');
-            lista.innerHTML = '';
-            const { inizio, fine } = getLimitiCiclo();
-            const oggi = new Date();
-            oggi.setHours(0,0,0,0);
-            
-            document.getElementById('ciclo-testo').innerText = `CICLO: ${inizio.toLocaleDateString()} - ${fine.toLocaleDateString()}`;
-
-            let entrateTotali = 0, usciteTotali = 0, usciteOggi = 0, speseFinoAIeri = 0;
-            const millisecondiAlGiorno = 24 * 60 * 60 * 1000;
-            const giorniTrascorsi = Math.floor((oggi - inizio) / millisecondiAlGiorno) + 1;
-
-            movimenti.forEach((m) => {
-                const dataM = new Date(m.dataISO);
-                if (dataM >= inizio) {
-                    const val = parseFloat(m.importo);
-                    if(m.tipo === 'IN') entrateTotali += val; else usciteTotali += val;
-                    
-                    const dataM_Pura = new Date(m.dataISO);
-                    dataM_Pura.setHours(0,0,0,0);
-                    
-                    if(dataM_Pura.getTime() === oggi.getTime() && m.tipo === 'OUT') {
-                        usciteOggi += val;
-                    } else if (dataM_Pura < oggi && m.tipo === 'OUT') {
-                        speseFinoAIeri += val;
-                    }
-
-                    lista.innerHTML += `
-                        <div class="item">
-                            <div>
-                                <span class="data-mov">${dataM.toLocaleDateString()}</span>
-                                <b>${m.desc}</b> ${m.isFissa ? '<span class="badge-fissa">FISSA</span>' : ''}
-                            </div>
-                            <div style="font-weight:bold; color:${m.tipo === 'IN' ? 'var(--green)' : 'var(--red)'}" onclick="elimina('${m.dataISO}')">
-                                ${m.tipo === 'IN' ? '+' : '-'}€${val.toFixed(2)}
-                            </div>
-                        </div>`;
-                }
-            });
-
-            // Budget Odierno Dinamico
-            const budgetOdiernoDinamico = (giorniTrascorsi * SOGLIA_GIORNALIERA) - (speseFinoAIeri + usciteOggi);
-            document.getElementById('budget-odierno').innerText = `€ ${budgetOdiernoDinamico.toFixed(2)}`;
-
-            // Limite Fisso (Alert Rosso)
-            const cardFisso = document.getElementById('card-fisso');
-            if (usciteOggi > SOGLIA_GIORNALIERA) {
-                cardFisso.style.background = "#fff2f2";
-                cardFisso.style.borderColor = "var(--red)";
-                document.getElementById('status-fisso').innerText = "SFORATO OGGI!";
-                document.getElementById('status-fisso').style.color = "var(--red)";
-            } else {
-                cardFisso.style.background = "white";
-                cardFisso.style.borderColor = "#ddd";
-                document.getElementById('status-fisso').innerText = "OK OGGI";
-                document.getElementById('status-fisso').style.color = "gray";
             }
 
-            const saldoAttuale = entrateTotali - usciteTotali;
-            document.getElementById('saldo').innerText = `€ ${saldoAttuale.toFixed(2)}`;
-            const diffGiorniFine = Math.ceil((fine - oggi + 1) / millisecondiAlGiorno);
-            const media = saldoAttuale > 0 ? (saldoAttuale / Math.max(diffGiorniFine, 1)) : 0;
-            document.getElementById('media-ciclo').innerText = `€ ${media.toFixed(2)}`;
-            document.getElementById('days-left').innerText = `${diffGiorniFine} gg al 23`;
-            
-            localStorage.setItem('wallet_v7', JSON.stringify(movimenti));
-            localStorage.setItem('ricorrenti', JSON.stringify(ricorrenti));
+            listaHTML.innerHTML += `
+                <div class="item">
+                    <div>
+                        <span class="data-mov">${dataM.toLocaleDateString('it-IT')}</span>
+                        <b>${m.desc}</b> ${m.isFissa ? '<span class="badge-fissa">FISSA</span>' : ''}
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <span style="font-weight:700; color:${m.tipo === 'IN' ? 'var(--green)' : 'var(--red)'}">
+                            ${m.tipo === 'IN' ? '+' : '-'}€${val.toFixed(2)}
+                        </span>
+                        <span class="delete-btn" onclick="elimina('${m.dataISO}')">×</span>
+                    </div>
+                </div>`;
         }
+    });
 
-        function aggiungi(tipo) {
-            const d = document.getElementById('desc').value, e = document.getElementById('euro').value;
-            if(!d || !e) return;
-            if(tipo === 'FIX') {
-                ricorrenti.push({ desc: d, importo: e });
-                alert("Spesa fissa salvata!");
-            } else {
-                movimenti.unshift({ desc: d, importo: e, tipo: tipo, dataISO: new Date().toISOString() });
-            }
-            document.getElementById('desc').value = ''; document.getElementById('euro').value = '';
-            aggiornaUI();
-        }
+    // 1. BUDGET DISPONIBILE OGGI (Accumulato nel tempo)
+    const msTrascorsi = oggi.getTime() - inizio.getTime();
+    const giorniTrascorsi = Math.floor(msTrascorsi / (1000 * 60 * 60 * 24)) + 1;
+    const budgetTeoricoAccumulato = giorniTrascorsi * SOGLIA_GIORNALIERA;
+    const budgetAccumulato = budgetTeoricoAccumulato - (speseVariabiliPassate + speseVariabiliOggi);
+    document.getElementById('budget-odierno').innerText = `€ ${budgetAccumulato.toFixed(2)}`;
 
-        function esportaCSV() {
-            let csv = "Data;Descrizione;Tipo;Importo\n";
-            movimenti.forEach(m => csv += `${new Date(m.dataISO).toLocaleDateString()};${m.desc};${m.tipo};${m.importo}\n`);
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'wallet_export.csv';
-            a.click();
-        }
+    // 2. MODIFICA RICHIESTA: RESTO DEL GIORNO (Reset a 20 ogni mattina)
+    const restoOggi = SOGLIA_GIORNALIERA - speseVariabiliOggi;
+    const boxFisso = document.getElementById('card-fisso'); // Assicurati che l'ID sia corretto nel tuo HTML
+    
+    // Aggiornamento grafico della casella Limite Fisso
+    const htmlRestoOggi = `
+        <div style="font-size: 0.65rem; color: var(--gray); font-weight: bold;">RESTO OGGI</div>
+        <div style="font-size: 1.2rem; font-weight: 700; color: ${restoOggi < 0 ? 'var(--red)' : 'var(--green)'}">
+            € ${restoOggi.toFixed(2)}
+        </div>
+        <div style="font-size: 0.55rem; color: var(--gray);">RESET A 20.00</div>
+    `;
+    document.getElementById('card-fisso').innerHTML = htmlRestoOggi;
 
-        function resetBonus() {
-            if(confirm("Vuoi cancellare i dati di questo ciclo?")) {
-                const { inizio } = getLimitiCiclo();
-                movimenti = movimenti.filter(m => new Date(m.dataISO) < inizio);
-                aggiornaUI();
-            }
-        }
-
-        function elimina(iso) {
-            if(confirm("Eliminare voce?")) {
-                const riga = movimenti.find(m => m.dataISO === iso);
-                if(riga && riga.isFissa && confirm("Rimuovere anche dalle ricorrenti future?")) {
-                    ricorrenti = ricorrenti.filter(r => r.desc !== riga.desc);
-                }
-                movimenti = movimenti.filter(m => m.dataISO !== iso);
-                aggiornaUI();
-            }
-        }
-
-        aggiornaUI();
-    </script>
-</body>
-</html>
+    document.getElementById('saldo').innerText = `€ ${saldoTotale.toFixed(2)}`;
+    document.getElementById('counter').innerText = movimenti.length;
+}
